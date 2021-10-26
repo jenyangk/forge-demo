@@ -24,3 +24,6 @@ app.set('port', port);
 app.listen(port, () => {
     console.log(`Server is listening on port ${port}`);
 });
+
+// TODO: Add Socket.IO elements
+// TODO: Mock telemetry data
