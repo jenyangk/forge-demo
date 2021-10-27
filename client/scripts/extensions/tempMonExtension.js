@@ -73,7 +73,7 @@
             ["XL 3300", "2430mm Length"],
             viewer,
             styleMap["temperature"],
-            10
+            5
         );
     }
 
@@ -101,16 +101,14 @@
 
             // add sprites per dbid returned from search
             let dbids = [];
-            propertyValue.forEach(async (value) => {
+            for (const value of propertyValue) {
                 const dbid = await findByPropertyValue(
                     viewer,
                     propertyName,
                     value
                 );
-                dbids = dbids.concat(dbid);
-            });
-            
-            console.log(dbids)
+                dbids = dbids.concat(await dbid);
+            }
 
             // exit if search finds nothing
             if (!dbids.length) {
@@ -189,9 +187,9 @@
                 getSensorValue
             );
 
-            // setInterval(() => {
-            //     dataVizExt.updateSurfaceShading(getSensorValue);
-            // }, 200);
+            setInterval(() => {
+                dataVizExt.updateSurfaceShading(getSensorValue);
+            }, 200);
 
             // resolve JS Promise
             res();
