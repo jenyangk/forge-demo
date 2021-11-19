@@ -1,5 +1,7 @@
 // Replace placeholder below by your encoded model urn
-const urn = "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6Y29tLnBjbC5ha29oLWZvcmdlLXN0YXJ0ZXIvU3VwZXJtYXJrZXQtQXJjaGl0ZWN0dXJlLnJ2dA";
+const urn = "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6Y29tLnBjbC5ha29oLWZvcmdlLXN0YXJ0ZXIvdGVzdF9idWlsZC5ydnQ";
+// const MODEL_2D_VIEWABLE_GRID = "abdacd31-f94c-e84f-9a58-4663e281d894"
+// const MODEL_3D_VIEWABLE_GRID = "6bfb4886-f2ee-9ccb-8db0-c5c170220c40"
 
 let viewerApp;
 const documentId = `urn:${urn}`;
@@ -16,9 +18,11 @@ $(document).ready(() => {
 
     Autodesk.Viewing.Initializer(options, () => {
         const container = document.getElementById('viewer-container');
+
         const viewerOptions = {
             extensions: ["TempMonExtension"]
         }
+
         viewerApp = new Autodesk.Viewing.GuiViewer3D(container, viewerOptions);
         Autodesk.Viewing.Document.load(documentId, onDocumentLoadSuccess, onDocumentLoadError);
     });
@@ -49,7 +53,7 @@ async function getToken(callback) {
  */
 function onDocumentLoadSuccess(doc, errorsAndWarnings) {
     // Get default geometry
-    const viewable = doc.getRoot().getDefaultGeometry();
+    const viewable = doc.getRoot().getDefaultGeometry(true);
 
     if (!viewable) {
         console.warn('Document contains no viewables');
@@ -57,6 +61,7 @@ function onDocumentLoadSuccess(doc, errorsAndWarnings) {
     }
     // Start viewer
     viewerApp.start();
+
     viewerApp.loadDocumentNode(doc, viewable).then((model) => {
         onItemLoadSuccess(model);
     }).catch((err) => {

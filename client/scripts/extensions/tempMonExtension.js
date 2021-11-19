@@ -49,32 +49,110 @@
 
     async function onModelLoaded(data) {
         const viewer = data.target;
+
         // Load Data Viz Lib: https://forge.autodesk.com/en/docs/dataviz/v1/developers_guide/introduction/overview/
         await viewer.loadExtension("Autodesk.DataVisualization");
 
+        const dataVizExt = viewer.getExtension("Autodesk.DataVisualization");
+        const DATAVIZEXTN = Autodesk.DataVisualization.Core;
+        const structureInfo = new DATAVIZEXTN.ModelStructureInfo(data.model);
+
         // Create model-to-style map from style definitions.
         let styleMap = {};
+
+        // Create model-to-style map from style definitions.
         Object.entries(SPRITE_STYLES).forEach(([type, styleDef]) => {
-            styleMap[type] = new Autodesk.DataVisualization.Core.ViewableStyle(
-                Autodesk.DataVisualization.Core.ViewableType.SPRITE,
+            styleMap[type] = new DATAVIZEXTN.ViewableStyle(
+                DATAVIZEXTN.ViewableType.SPRITE,
                 new THREE.Color(styleDef.color),
                 styleDef.url
             );
         });
 
-        // hides the roof
-        viewer.hide(
-            await findByPropertyValue(viewer, "Reference Level", "Roof")
+        const viewableData = new DATAVIZEXTN.ViewableData();
+        viewableData.spriteSize = 16;
+
+        let devices = [];
+        let startId = 1;
+        let levelRoomsMap = await structureInfo.getLevelRoomsMap();
+        let rooms = levelRoomsMap.getRoomsOnLevel("Level 1");
+        console.log(rooms);
+        for (let room of rooms) {
+            let center = new THREE.Vector3();
+            room.bounds.getCenter(center);
+            const device = {
+                id: room.name + " device", // An ID to identify this device
+                position: { x: center.x, y: center.y, z: center.z }, // World coordinates of this device
+                sensorTypes: ["temperature"], // The types/properties this device exposes
+            };
+            room.addDevice(device);
+            devices.push(device);
+        }
+
+        devices.forEach((device) => {
+            let style = styleMap["temperature"];
+            const viewable = new DATAVIZEXTN.SpriteViewable(
+                device.position,
+                style,
+                startId
+            );
+            viewableData.addViewable(viewable);
+            startId++;
+        });
+        await viewableData.finish();
+        dataVizExt.addViewables(viewableData);
+
+        // Load Level Data
+        let viewerDocument = data.model.getDocumentNode().getDocument();
+        const aecModelData = await viewerDocument.downloadAecModelData();
+        let levelsExt;
+        if (aecModelData) {
+            levelsExt = await viewer.loadExtension(
+                "Autodesk.AEC.LevelsExtension"
+            );
+        }
+
+        // get FloorInfo
+        const floorData = levelsExt.floorSelector.floorData;
+        const floor = floorData[2];
+        levelsExt.floorSelector.selectFloor(floor.index, true);
+
+        const heatmapData = await structureInfo.generateSurfaceShadingData(
+            devices
+        );
+        await dataVizExt.setupSurfaceShading(data.model, heatmapData, {
+            type: "PlanarHeatmap",
+            placementPosition: 0.0,
+            slicingEnabled: true,
+        });
+        dataVizExt.registerSurfaceShadingColors("co2", [0x00ff00, 0xff0000]);
+        dataVizExt.registerSurfaceShadingColors(
+            "temperature",
+            [0xff0000, 0x0000ff]
         );
 
-        // add temp sensors for deli fridges
-        await attachSpriteAndHeatmapBySearch(
-            "Type Name",
-            ["XL 3300", "2430mm Length"],
-            viewer,
-            styleMap["temperature"],
-            5
+        /**
+         * Interface for application to decide what the current value for the heatmap is.
+         *
+         * @param {string} device device id
+         * @param {string} sensorType sensor type
+         */
+        function getSensorValue(device, sensorType) {
+            // just try to avoid line warning
+            device, sensorType;
+            let value = Math.random();
+            return value;
+        }
+
+        dataVizExt.renderSurfaceShading(
+            floor.name,
+            "temperature",
+            getSensorValue
         );
+
+        setInterval(() => {
+            dataVizExt.updateSurfaceShading(getSensorValue);
+        }, 200)
     }
 
     // add sprites to model search by property value
